@@ -101,6 +101,12 @@ class Rbf(object):
         which is called with ``x1 = x1[ndims, newaxis, :]`` and
         ``x2 = x2[ndims, : ,newaxis]`` such that the result is a matrix of the
         distances from each point in ``x1`` to each point in ``x2``.
+    add_polynomial : boolean, optional
+        If set to True (default), linear polynomial is added to the interpolant
+        expression, which ensures non-singularity of the interpolation
+        matrix and improves interpolation behaviour (e.g. if input points
+        lay on a hyperplane, the interpolation surface would be an exact
+        hyperplane).
 
     Examples
     --------
@@ -191,6 +197,7 @@ class Rbf(object):
         self.xi = np.asarray([np.asarray(a, dtype=np.float_).flatten()
                            for a in args[:-1]])
         self.N = self.xi.shape[-1]
+        self.nd = self.xi.shape[0] + 1
         self.di = np.asarray(args[-1]).flatten()
 
         if not all([x.size == self.di.size for x in self.xi]):
@@ -211,20 +218,32 @@ class Rbf(object):
 
         self.function = kwargs.pop('function', 'multiquadric')
 
+        self.add_polynomial = kwargs.pop('add_polynomial', True)
+        if self.add_polynomial:
+            self.di = np.lib.pad(self.di, (self.nd, 0), 'constant')
+
         # attach anything left in kwargs to self
         #  for use by any user-callable function or
         #  to save on the object returned.
         for item, value in kwargs.items():
             setattr(self, item, value)
-
+        
         self.nodes = linalg.solve(self.A, self.di)
+        print(self.nodes)
 
     @property
     def A(self):
         # this only exists for backwards compatibility: self.A was available
         # and, at least technically, public.
         r = self._call_norm(self.xi, self.xi)
-        return self._init_function(r) - np.eye(self.N)*self.smooth
+        A = self._init_function(r) - np.eye(self.N)*self.smooth
+        if self.add_polynomial:
+            A = np.lib.pad(A, (self.nd, 0), 'constant')
+            P = np.lib.pad(self.xi, ((1, 0), (0, 0)), 'constant', constant_values=1)
+            A[:self.nd, self.nd:] = P
+            A[self.nd:, :self.nd] = P.T
+        print(A)
+        return A
 
     def _call_norm(self, x1, x2):
         if len(x1.shape) == 1:
@@ -242,4 +261,8 @@ class Rbf(object):
         shp = args[0].shape
         xa = np.asarray([a.flatten() for a in args], dtype=np.float_)
         r = self._call_norm(xa, self.xi)
-        return np.dot(self._function(r), self.nodes).reshape(shp)
+        funr = self._function(r)
+        if self.add_polynomial:
+            funr = np.lib.pad(funr, ((0, 0), (self.nd, 0)), 'constant', constant_values=1)
+            funr[:,1:self.nd] = xa.T
+        return np.dot(funr, self.nodes).reshape(shp)
