@@ -242,7 +242,6 @@ class Rbf(object):
             P = np.lib.pad(self.xi, ((1, 0), (0, 0)), 'constant', constant_values=1)
             A[:self.nd, self.nd:] = P
             A[self.nd:, :self.nd] = P.T
-        print(A)
         return A
 
     def _call_norm(self, x1, x2):
