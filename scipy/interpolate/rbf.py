@@ -105,7 +105,7 @@ class Rbf(object):
         If set to True (default), linear polynomial is added to the interpolant
         expression, which ensures non-singularity of the interpolation
         matrix and improves interpolation behaviour (e.g. if input points
-        lay on a hyperplane, the interpolation surface would be an exact
+        form a hyperplane, the interpolation surface would be an exact
         hyperplane).
 
     Examples
